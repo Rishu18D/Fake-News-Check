@@ -374,6 +374,10 @@ def default_metrics_path() -> Path:
     return project_root() / "outputs" / "metrics.json"
 
 
+def default_advanced_artifact_dir() -> Path:
+    return project_root() / "outputs" / "advanced"
+
+
 # ============================================================
 # MODEL
 # ============================================================
@@ -419,6 +423,8 @@ args, _ = parser.parse_known_args()
 
 pipeline_path = Path(args.pipeline).resolve()
 metrics_path = default_metrics_path()
+advanced_artifact_dir = default_advanced_artifact_dir()
+advanced_available = (advanced_artifact_dir / "model_bundle.joblib").is_file()
 
 
 # ============================================================
@@ -461,13 +467,27 @@ with st.sidebar:
 
     st.divider()
 
+    model_options = ["Baseline · TF-IDF + Logistic Regression"]
+    if advanced_available:
+        model_options.append("Advanced · Local ML ensemble")
+    selected_model = st.selectbox("Active classifier", model_options)
+    use_advanced_model = selected_model.startswith("Advanced")
+
+    if not advanced_available:
+        st.caption(
+            "Advanced local models are not trained yet. "
+            "Run `python src/train_advanced.py` to create them."
+        )
+
+    st.divider()
+
     st.subheader("System Details")
 
     st.write("**Feature Extraction**")
-    st.write("TF-IDF")
+    st.write("Transformer + sentence embeddings" if use_advanced_model else "TF-IDF")
 
     st.write("**Classifier**")
-    st.write("Logistic Regression")
+    st.write("Calibrated local ensemble" if use_advanced_model else "Logistic Regression")
 
     st.write("**Classification**")
     st.write("REAL / FAKE / UNCERTAIN")
@@ -531,7 +551,7 @@ st.markdown(
 # MODEL CHECK
 # ============================================================
 
-if not pipeline_path.exists():
+if not use_advanced_model and not pipeline_path.exists():
 
     st.error(
         "The trained classification model is unavailable."
@@ -545,9 +565,9 @@ if not pipeline_path.exists():
     st.stop()
 
 
-pipeline = load_pipeline(
-    str(pipeline_path)
-)
+pipeline = None
+if not use_advanced_model:
+    pipeline = load_pipeline(str(pipeline_path))
 
 
 # ============================================================
@@ -640,10 +660,26 @@ if analyze:
     # --------------------------------------------------------
 
     try:
+        if use_advanced_model:
+            from advanced_models import predict_advanced
 
-        fake_probability = float(
-            pipeline.predict_proba([text])[0, 1]
-        )
+            advanced_result = predict_advanced(
+                advanced_artifact_dir,
+                text,
+                threshold=threshold,
+                uncertainty_margin=uncertainty_margin,
+            )
+            fake_probability = float(advanced_result["prob_fake"])
+            prediction = str(advanced_result["label"])
+        else:
+            if pipeline is None:
+                raise RuntimeError("The baseline classifier was not loaded.")
+            fake_probability = float(pipeline.predict_proba([text])[0, 1])
+            prediction = classify_probability(
+                fake_probability,
+                threshold,
+                uncertainty_margin,
+            )
 
     except Exception as error:
 
@@ -663,11 +699,19 @@ if analyze:
     # CLASSIFICATION
     # --------------------------------------------------------
 
-    prediction = classify_probability(
-        fake_probability,
-        threshold,
-        uncertainty_margin,
-    )
+    if use_advanced_model and "advanced_result" in locals():
+        with st.expander("Model probability breakdown"):
+            component_probabilities = advanced_result.get("components", {})
+            if component_probabilities:
+                for component, probability in component_probabilities.items():
+                    st.metric(
+                        str(component).replace("_", " ").title(),
+                        f"{float(probability):.1%}",
+                    )
+            st.caption(
+                "The ensemble combines locally-run model outputs; confidence "
+                "does not verify whether claims are factually true."
+            )
 
 
     # --------------------------------------------------------
@@ -718,7 +762,7 @@ if analyze:
             "in the model's training data."
         )
 
-    else:
+    elif prediction == "UNCERTAIN":
 
         st.warning(
             "❓ INCONCLUSIVE RESULT"
@@ -728,6 +772,16 @@ if analyze:
             "The prediction is close to the classification "
             "boundary, so the system cannot make a clear "
             "classification."
+        )
+
+    else:
+        st.warning(
+            "◈ INSUFFICIENT CONFIDENCE"
+        )
+
+        st.write(
+            "The advanced model's calibrated uncertainty estimate is too high "
+            "to assign a reliable category. Consider providing more context."
         )
 
 
@@ -849,8 +903,7 @@ if analyze:
     else:
 
         st.write(
-            "The two categories are too close for the system "
-            "to confidently select one."
+            "The prediction did not meet the confidence requirement for either category."
         )
 
 

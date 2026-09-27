@@ -89,3 +89,50 @@ Classification logic
 REAL / FAKE / UNCERTAIN
         ↓
 Result + Probability + Confidence
+
+## Advanced local ML mode
+
+The original TF-IDF + Logistic Regression pipeline remains the lightweight
+baseline. An optional advanced training workflow adds a locally-run transformer,
+Sentence-Transformer semantic features, attention-based feature fusion, and a
+validation-calibrated ensemble. The dashboard exposes the advanced ensemble
+after its artifacts have been trained.
+
+Install the optional open-source dependencies in the same Python environment:
+
+```powershell
+python -m pip install -r requirements-advanced.txt
+```
+
+Train the additional models without replacing the baseline artifacts:
+
+```powershell
+python src/train_advanced.py --real data/True.csv --fake data/Fake.csv --outdir outputs/advanced
+```
+
+Model weights are obtained from their public Hugging Face model repositories
+when training runs for the first time, then saved under `outputs/advanced` for
+local inference. No API service, API key, RAG, or web search is used. Training
+and inference are local; CPU is supported, while CUDA is used automatically
+when available. Transformer training can take substantial time and disk space
+on CPU. The transformer and sentence-embedding checkpoints can be changed with
+the training command's model options. CPU-friendly defaults cap neural
+training at 1,000 stratified training rows and evaluation at 300 stratified
+validation/test rows; the baseline still trains on its full training split.
+Use `--neural-train-limit` and `--neural-eval-limit` to change these limits.
+Comparisons therefore describe the configured training protocol, not a
+same-compute or same-training-volume benchmark.
+
+The advanced evaluation writes model comparisons, validation protocol details,
+and ablation results to `outputs/advanced/advanced_metrics.json`. It keeps the
+holdout test set separate from training, model selection, and probability
+calibration. Integrated Gradients token attributions are available for the
+transformer through the advanced explainability API. Treat the report
+cautiously: the bundled dataset has known source
+and writing-style artifacts, and good benchmark metrics do not mean that a
+model can verify claims or generalize to current news. Advanced uncertainty
+may return **Insufficient Confidence** rather than forcing a prediction.
+
+To use the baseline instead, leave `outputs/advanced` untrained or choose the
+baseline classifier in the dashboard. Its CLI and existing model artifacts
+continue to work as before.

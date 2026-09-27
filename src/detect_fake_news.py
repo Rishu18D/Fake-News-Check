@@ -67,7 +67,18 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Classify one headline/article as REAL, FAKE, or UNCERTAIN."
     )
+    parser.add_argument(
+        "--model",
+        choices=["baseline", "advanced"],
+        default="baseline",
+        help="Select the existing baseline or the locally trained advanced ensemble.",
+    )
     parser.add_argument("--pipeline", default=str(default_pipeline_path()), help="Path to outputs/pipeline.joblib.")
+    parser.add_argument(
+        "--advanced-dir",
+        default=str(Path(__file__).resolve().parents[1] / "outputs" / "advanced"),
+        help="Directory containing locally trained advanced model artifacts.",
+    )
     parser.add_argument("--text", required=True, help="Headline or article text to classify.")
     parser.add_argument("--threshold", type=float, default=0.5, help="Decision threshold for FAKE.")
     parser.add_argument(
@@ -79,12 +90,23 @@ def main() -> None:
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     args = parser.parse_args()
 
-    result = predict_one(
-        Path(args.pipeline),
-        args.text,
-        args.threshold,
-        args.uncertainty_margin,
-    )
+    if args.model == "advanced":
+        from advanced_models import predict_advanced
+
+        result = predict_advanced(
+            args.advanced_dir,
+            args.text,
+            threshold=args.threshold,
+            uncertainty_margin=args.uncertainty_margin,
+        )
+        result["model_path"] = str(Path(args.advanced_dir) / "model_bundle.joblib")
+    else:
+        result = predict_one(
+            Path(args.pipeline),
+            args.text,
+            args.threshold,
+            args.uncertainty_margin,
+        )
     if args.json:
         print(json.dumps(result, indent=2))
     else:
