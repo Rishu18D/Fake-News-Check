@@ -46,14 +46,22 @@ def predict_one(
     text: str,
     threshold: float,
     uncertainty_margin: float = 0.10,
+    confidence_threshold: float = 0.60,
 ) -> dict[str, object]:
+    if not 0.5 <= confidence_threshold <= 1.0:
+        raise ValueError("confidence_threshold must be between 0.5 and 1")
     if not pipeline_path.exists():
         raise FileNotFoundError(
             f"Pipeline not found at {pipeline_path}. Train first with: python src/train_model.py"
         )
     pipeline = load_pipeline(pipeline_path)
     prob_fake = float(pipeline.predict_proba([text])[0, 1])
-    label = classify_probability(prob_fake, threshold, uncertainty_margin)
+    confidence = max(prob_fake, 1 - prob_fake)
+    label = (
+        "Insufficient Confidence"
+        if confidence < confidence_threshold
+        else classify_probability(prob_fake, threshold, uncertainty_margin)
+    )
     return {
         "label": label,
         "prob_fake": prob_fake,
@@ -79,8 +87,19 @@ def main() -> None:
         default=str(Path(__file__).resolve().parents[1] / "outputs" / "advanced"),
         help="Directory containing locally trained advanced model artifacts.",
     )
+    parser.add_argument(
+        "--component",
+        choices=["baseline", "transformer", "embedding", "fusion", "ensemble"],
+        help="Select an advanced model component; the default uses the best available ensemble.",
+    )
     parser.add_argument("--text", required=True, help="Headline or article text to classify.")
     parser.add_argument("--threshold", type=float, default=0.5, help="Decision threshold for FAKE.")
+    parser.add_argument(
+        "--confidence-threshold",
+        type=float,
+        default=0.60,
+        help="Minimum max(class probability) required for a non-uncertain prediction.",
+    )
     parser.add_argument(
         "--uncertainty-margin",
         type=float,
@@ -90,6 +109,9 @@ def main() -> None:
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     args = parser.parse_args()
 
+    if args.component is not None and args.model != "advanced":
+        parser.error("--component can only be used with --model advanced")
+
     if args.model == "advanced":
         from advanced_models import predict_advanced
 
@@ -98,6 +120,8 @@ def main() -> None:
             args.text,
             threshold=args.threshold,
             uncertainty_margin=args.uncertainty_margin,
+            confidence_threshold=args.confidence_threshold,
+            component=args.component,
         )
         result["model_path"] = str(Path(args.advanced_dir) / "model_bundle.joblib")
     else:
@@ -106,12 +130,15 @@ def main() -> None:
             args.text,
             args.threshold,
             args.uncertainty_margin,
+            args.confidence_threshold,
         )
     if args.json:
         print(json.dumps(result, indent=2))
     else:
         print(
-            f"Label: {result['label']} | Fake probability: {result['prob_fake']:.3f} | "
+            f"Label: {result['label']} | "
+            f"Raw fake probability: {result.get('raw_prob_fake', result['prob_fake']):.3f} | "
+            f"Final fake probability: {result['prob_fake']:.3f} | "
             f"Threshold: {result['threshold']:.2f} | "
             f"Uncertainty margin: +/-{result['uncertainty_margin'] / 2:.2f}"
         )

@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import html
 import json
 from pathlib import Path
 
 import streamlit as st
 
+from advanced_models import advanced_component_availability
 from detect_fake_news import classify_probability
 from model_compat import load_pipeline as load_model_pipeline
 
@@ -332,6 +334,64 @@ st.markdown(
         line-height: 1.6;
     }
 
+    .evidence-card {
+        padding: 1.25rem;
+        border: 1px solid rgba(84, 242, 227, 0.28);
+        border-radius: 16px;
+        background: linear-gradient(145deg, rgba(13, 29, 43, 0.96), rgba(13, 17, 32, 0.94));
+        box-shadow: 0 16px 44px rgba(0, 0, 0, 0.2);
+    }
+
+    .evidence-label {
+        color: var(--cyan);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+    }
+
+    .evidence-prediction {
+        margin: 0.5rem 0;
+        color: var(--ink);
+        font-size: clamp(1.3rem, 3vw, 2rem);
+        font-weight: 750;
+    }
+
+    .evidence-prediction.credible {
+        color: var(--cyan);
+    }
+
+    .evidence-prediction.misleading {
+        color: var(--pink);
+    }
+
+    .evidence-prediction.uncertain {
+        color: #ffd479;
+    }
+
+    .evidence-claim {
+        margin: 0.7rem 0 0;
+        padding: 0.85rem 1rem;
+        border-left: 2px solid var(--blue);
+        border-radius: 0 8px 8px 0;
+        background: rgba(5, 12, 23, 0.6);
+        color: #bac9d9;
+        line-height: 1.65;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    .indicator-chip {
+        display: inline-block;
+        margin: 0.25rem 0.25rem 0.25rem 0;
+        padding: 0.4rem 0.65rem;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(98, 168, 255, 0.08);
+        color: #c9dbed;
+        font-size: 0.78rem;
+    }
+
     @media (max-width: 700px) {
         .block-container {
             padding: 1.35rem 1rem 2rem;
@@ -352,6 +412,288 @@ st.markdown(
             transition-duration: 0.01ms !important;
         }
     }
+
+    :root {
+        color-scheme: light;
+        --primary-color: #276b59;
+        --ink: #24342f;
+        --muted: #64746d;
+        --cyan: #276b59;
+        --blue: #4b7969;
+        --pink: #a84c4c;
+        --panel: #ffffff;
+        --line: #e2e9e4;
+    }
+
+    [data-testid="stAppViewContainer"] {
+        color: var(--ink);
+        background: #f5f7f4;
+    }
+
+    [data-testid="stAppViewContainer"]::before {
+        display: none;
+    }
+
+    [data-testid="stHeader"] {
+        background: #f5f7f4;
+    }
+
+    .block-container {
+        max-width: 940px;
+        padding: 5rem 1.5rem 3rem;
+    }
+
+    [data-testid="stSidebar"] {
+        background: #ffffff;
+    }
+
+    [data-testid="stSidebar"] > div:first-child {
+        border-right: 1px solid #e7ece8;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stSidebar"] label,
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stCaptionContainer"] {
+        color: #56675f;
+    }
+
+    h1, h2, h3,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {
+        color: #24342f;
+        letter-spacing: -0.025em;
+    }
+
+    .sidebar-brand {
+        padding: 0.2rem 0 0.5rem;
+    }
+
+    .sidebar-brand-name {
+        color: #24342f;
+        font-size: 1.45rem;
+        letter-spacing: -0.04em;
+    }
+
+    .sidebar-brand-name span {
+        color: #276b59;
+    }
+
+    .sidebar-tagline {
+        color: #718078;
+        font-size: 0.82rem;
+        letter-spacing: 0;
+        text-transform: none;
+    }
+
+    .hero-shell {
+        margin: 0 0 1.5rem;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .hero-shell::after,
+    .hero-kicker,
+    .hero-status {
+        display: none;
+    }
+
+    .hero-title {
+        margin: 0 0 0.65rem;
+        color: #24342f;
+        font-size: clamp(2rem, 5vw, 2.9rem);
+        font-weight: 720;
+        letter-spacing: -0.055em;
+        line-height: 1.12;
+    }
+
+    .hero-title span {
+        color: #276b59;
+        text-shadow: none;
+    }
+
+    .hero-copy {
+        max-width: 650px;
+        color: #5d6d65;
+        font-size: 1rem;
+    }
+
+    [data-testid="stTextArea"] textarea {
+        min-height: 190px;
+        border: 0;
+        border-radius: 11px;
+        background: #ffffff;
+        color: #24342f;
+        line-height: 1.65;
+        box-shadow: none;
+    }
+
+    [data-testid="stTextAreaRootElement"] {
+        overflow: hidden;
+        border: 1px solid #d8e1da;
+        border-radius: 12px;
+        background: #ffffff;
+        box-shadow: none;
+    }
+
+    [data-testid="stTextAreaRootElement"]:focus-within {
+        border-color: #43816d;
+        box-shadow: 0 0 0 3px rgba(67, 129, 109, 0.14);
+    }
+
+    [data-testid="stTextArea"] textarea::placeholder {
+        color: #88958e;
+    }
+
+    [data-testid="stButton"] > button {
+        min-height: 2.9rem;
+        border: 1px solid #276b59;
+        border-radius: 9px;
+        background: #276b59;
+        color: #ffffff;
+        font-size: 1rem;
+        font-weight: 650;
+        letter-spacing: 0;
+        text-transform: none;
+        box-shadow: none;
+        transition: background 120ms ease, border-color 120ms ease;
+    }
+
+    [data-testid="stButton"] > button:hover {
+        transform: none;
+        border-color: #1f5949;
+        background: #1f5949;
+        color: #ffffff;
+        box-shadow: none;
+    }
+
+    [data-testid="stButton"] > button:focus {
+        box-shadow: 0 0 0 3px rgba(67, 129, 109, 0.2);
+    }
+
+    [data-testid="stButton"] > button [data-testid="stMarkdownContainer"] p {
+        color: #ffffff;
+    }
+
+    [data-testid="stMetric"] {
+        padding: 0.8rem 1rem;
+        border: 1px solid #e3e9e4;
+        border-radius: 10px;
+        background: #ffffff;
+        box-shadow: none;
+    }
+
+    [data-testid="stMetricLabel"] {
+        color: #64746d;
+        font-size: 0.78rem;
+        letter-spacing: 0;
+        text-transform: none;
+    }
+
+    [data-testid="stMetricValue"] {
+        color: #24342f;
+    }
+
+    [data-testid="stProgress"] > div > div {
+        background: #43816d;
+    }
+
+    [data-testid="stAlert"] {
+        border: 1px solid #e3e9e4;
+        border-radius: 10px;
+        background: #ffffff;
+    }
+
+    [data-testid="stSlider"] [role="slider"] {
+        border-color: #276b59;
+        box-shadow: none;
+    }
+
+    [data-testid="stDivider"] {
+        border-color: #e3e9e4;
+    }
+
+    .evidence-card {
+        padding: 1.35rem;
+        border: 1px solid #e0e8e2;
+        border-left: 4px solid #789184;
+        border-radius: 12px;
+        background: #ffffff;
+        box-shadow: 0 4px 16px rgba(30, 50, 40, 0.04);
+    }
+
+    .evidence-label {
+        color: #64746d;
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: none;
+    }
+
+    .evidence-prediction {
+        margin: 0.5rem 0 0.3rem;
+        color: #24342f;
+        font-size: clamp(1.45rem, 3vw, 2rem);
+    }
+
+    .evidence-prediction.credible {
+        color: #276b59;
+    }
+
+    .evidence-prediction.misleading {
+        color: #a44343;
+    }
+
+    .evidence-prediction.uncertain {
+        color: #8a641f;
+    }
+
+    .evidence-claim {
+        margin: 1rem 0 0;
+        padding: 0.8rem 0 0;
+        border-top: 1px solid #edf0ed;
+        border-left: 0;
+        border-radius: 0;
+        background: transparent;
+        color: #4b5d54;
+        line-height: 1.65;
+    }
+
+    .indicator-chip {
+        border-color: #e1e8e3;
+        background: #f4f7f4;
+        color: #40584b;
+    }
+
+    .tech-card {
+        border-color: #e3e9e4;
+        border-radius: 10px;
+        background: #ffffff;
+    }
+
+    .tech-index,
+    .tech-title {
+        color: #276b59;
+    }
+
+    [data-testid="stExpander"] {
+        border-color: #e3e9e4;
+        border-radius: 10px;
+        background: #ffffff;
+    }
+
+    @media (max-width: 700px) {
+        .block-container {
+            padding: 5rem 1rem 2rem;
+        }
+
+        .hero-shell {
+            border-radius: 0;
+        }
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -370,12 +712,12 @@ def default_pipeline_path() -> Path:
     return project_root() / "outputs" / "pipeline.joblib"
 
 
-def default_metrics_path() -> Path:
-    return project_root() / "outputs" / "metrics.json"
-
-
 def default_advanced_artifact_dir() -> Path:
     return project_root() / "outputs" / "advanced"
+
+
+def default_advanced_metrics_path() -> Path:
+    return default_advanced_artifact_dir() / "advanced_metrics.json"
 
 
 # ============================================================
@@ -422,9 +764,10 @@ parser.add_argument(
 args, _ = parser.parse_known_args()
 
 pipeline_path = Path(args.pipeline).resolve()
-metrics_path = default_metrics_path()
 advanced_artifact_dir = default_advanced_artifact_dir()
-advanced_available = (advanced_artifact_dir / "model_bundle.joblib").is_file()
+advanced_components_available = advanced_component_availability(advanced_artifact_dir)
+advanced_available = any(advanced_components_available.values())
+advanced_metrics = load_metrics(default_advanced_metrics_path())
 
 
 # ============================================================
@@ -432,98 +775,79 @@ advanced_available = (advanced_artifact_dir / "model_bundle.joblib").is_file()
 # ============================================================
 
 with st.sidebar:
-
     st.markdown(
         """
         <div class="sidebar-brand">
             <div class="sidebar-brand-name">News<span>Check</span></div>
-            <div class="sidebar-tagline">Credibility pattern analyzer</div>
+            <div class="sidebar-tagline">A guide to language patterns</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    st.divider()
-
-    st.subheader("Prediction Controls")
-
-    threshold = st.slider(
-        "Classification threshold",
-        min_value=0.05,
-        max_value=0.95,
-        value=0.50,
-        step=0.01,
-        help="Controls the probability level used by the classifier.",
+    model_options = []
+    advanced_component_options = {
+        "Ensemble (recommended)": "ensemble",
+        "Transformer": "transformer",
+        "Attention fusion": "fusion",
+        "Sentence embeddings": "embedding",
+        "Baseline model": "baseline",
+    }
+    for label, component_name in advanced_component_options.items():
+        if advanced_components_available.get(component_name):
+            model_options.append(label)
+    model_options.append("Baseline (raw)")
+    default_model_index = (
+        model_options.index("Ensemble (recommended)")
+        if "Ensemble (recommended)" in model_options
+        else model_options.index("Baseline model")
+        if "Baseline model" in model_options
+        else 0
     )
+    with st.expander("Settings", expanded=False):
+        st.caption("Most people can use the recommended defaults.")
+        selected_model = st.selectbox(
+            "Prediction model", model_options, index=default_model_index
+        )
+        threshold = st.slider(
+            "Decision threshold",
+            min_value=0.05,
+            max_value=0.95,
+            value=0.50,
+            step=0.01,
+            help="Adjust only if you need a stricter or more permissive decision.",
+        )
+        uncertainty_margin = st.slider(
+            "Uncertain range",
+            min_value=0.00,
+            max_value=0.30,
+            value=0.10,
+            step=0.01,
+            help="Scores close to the threshold are shown as uncertain.",
+        )
+        confidence_threshold = st.slider(
+            "Minimum confidence",
+            min_value=0.50,
+            max_value=0.95,
+            value=0.60,
+            step=0.01,
+            help="Lower-confidence predictions are shown as insufficient confidence.",
+        )
+        show_token_attributions = False
+        if advanced_components_available.get("transformer"):
+            show_token_attributions = st.checkbox(
+                "Show word-level model explanation",
+                value=False,
+                help="Runs an extra local attribution pass for the Transformer.",
+            )
 
-    uncertainty_margin = st.slider(
-        "Uncertainty margin",
-        min_value=0.00,
-        max_value=0.30,
-        value=0.10,
-        step=0.01,
-        help="Creates an uncertainty zone around the classification threshold.",
-    )
-
-    st.divider()
-
-    model_options = ["Baseline · TF-IDF + Logistic Regression"]
-    if advanced_available:
-        model_options.append("Advanced · Local ML ensemble")
-    selected_model = st.selectbox("Active classifier", model_options)
-    use_advanced_model = selected_model.startswith("Advanced")
+    selected_component = advanced_component_options.get(selected_model, "legacy")
+    use_advanced_model = selected_component != "legacy"
 
     if not advanced_available:
-        st.caption(
-            "Advanced local models are not trained yet. "
-            "Run `python src/train_advanced.py` to create them."
-        )
-
-    st.divider()
-
-    st.subheader("System Details")
-
-    st.write("**Feature Extraction**")
-    st.write("Transformer + sentence embeddings" if use_advanced_model else "TF-IDF")
-
-    st.write("**Classifier**")
-    st.write("Calibrated local ensemble" if use_advanced_model else "Logistic Regression")
-
-    st.write("**Classification**")
-    st.write("REAL / FAKE / UNCERTAIN")
-
-    st.divider()
-
-    metrics = load_metrics(metrics_path)
-
-    if metrics:
-
-        test = metrics.get("holdout_test", {})
-
-        st.subheader("Evaluation")
-
-        st.metric(
-            "Accuracy",
-            f"{test.get('accuracy', 0):.3f}",
-        )
-
-        st.metric(
-            "Macro F1",
-            f"{test.get('macro_f1', 0):.3f}",
-        )
-
-        st.metric(
-            "ROC-AUC",
-            f"{test.get('roc_auc', 0):.3f}",
-        )
-
-    st.divider()
-
-    st.caption(
-        "For educational use. The prediction indicates "
-        "textual similarity to the model's training patterns "
-        "and is not a factual verification."
-    )
+        st.caption("Using the baseline model. Advanced models have not been trained.")
+    elif not advanced_components_available.get("transformer"):
+        st.caption("Some advanced models are unavailable. Choose another model in Settings.")
 
 
 # ============================================================
@@ -533,14 +857,11 @@ with st.sidebar:
 st.markdown(
     """
     <section class="hero-shell">
-        <div class="hero-kicker">News intelligence / 01</div>
-        <div class="hero-title">Read the <span>signal.</span><br>Question the noise.</div>
+        <div class="hero-title">Check a news story<span>.</span></div>
         <p class="hero-copy">
-            Analyze the language patterns in a headline or article excerpt.
-            NewsCheck estimates whether the text resembles examples from its
-            real or fake training categories.
+            Paste a headline or article excerpt to see how its language compares
+            with patterns learned by the model. This is not a fact-check.
         </p>
-        <div class="hero-status"><span class="status-dot"></span> Pattern analysis system</div>
     </section>
     """,
     unsafe_allow_html=True,
@@ -574,59 +895,16 @@ if not use_advanced_model:
 # NEWS INPUT
 # ============================================================
 
-st.markdown('<div class="section-kicker">01 / Submit a sample</div>', unsafe_allow_html=True)
-st.subheader("News text")
-
-st.caption(
-    "For better results, provide a complete headline "
-    "or several sentences from the article."
-)
-
 text = st.text_area(
-    "Input",
-    height=250,
+    "Paste a headline or article text",
+    height=210,
     placeholder=(
-        "Paste the news headline or article excerpt here..."
+        "For a more useful language-pattern comparison, include a headline "
+        "and a few sentences..."
     ),
-    label_visibility="collapsed",
 )
-
-
-# ============================================================
-# QUICK INFORMATION
-# ============================================================
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-
-    st.metric(
-        "Threshold",
-        f"{threshold:.0%}",
-    )
-
-with col2:
-
-    st.metric(
-        "Uncertainty",
-        f"±{uncertainty_margin / 2:.0%}",
-    )
-
-with col3:
-
-    words = (
-        len(text.strip().split())
-        if text.strip()
-        else 0
-    )
-
-    st.metric(
-        "Word Count",
-        words,
-    )
-
-
-st.write("")
+word_count = len(text.strip().split()) if text.strip() else 0
+st.caption(f"{word_count} words · Text stays on this device.")
 
 
 # ============================================================
@@ -634,7 +912,7 @@ st.write("")
 # ============================================================
 
 analyze = st.button(
-    "Run signal analysis",
+    "Analyze text",
     type="primary",
     use_container_width=True,
 )
@@ -668,18 +946,30 @@ if analyze:
                 text,
                 threshold=threshold,
                 uncertainty_margin=uncertainty_margin,
+                confidence_threshold=confidence_threshold,
+                component=selected_component,
             )
             fake_probability = float(advanced_result["prob_fake"])
             prediction = str(advanced_result["label"])
+            raw_fake_probability = float(advanced_result["raw_prob_fake"])
         else:
             if pipeline is None:
                 raise RuntimeError("The baseline classifier was not loaded.")
             fake_probability = float(pipeline.predict_proba([text])[0, 1])
-            prediction = classify_probability(
-                fake_probability,
-                threshold,
-                uncertainty_margin,
-            )
+            raw_fake_probability = fake_probability
+            if max(fake_probability, 1 - fake_probability) < confidence_threshold:
+                prediction = "Insufficient Confidence"
+            else:
+                prediction = classify_probability(
+                    fake_probability, threshold, uncertainty_margin
+                )
+            advanced_result = {
+                "calibration_method": "Not calibrated (baseline raw probability)",
+                "components": {"baseline_raw": fake_probability},
+                "raw_components": {"baseline_raw": raw_fake_probability},
+                "indicators": [],
+                "decision_component": "baseline",
+            }
 
     except Exception as error:
 
@@ -695,217 +985,149 @@ if analyze:
     real_probability = 1 - fake_probability
 
 
-    # --------------------------------------------------------
-    # CLASSIFICATION
-    # --------------------------------------------------------
-
-    if use_advanced_model and "advanced_result" in locals():
-        with st.expander("Model probability breakdown"):
-            component_probabilities = advanced_result.get("components", {})
-            if component_probabilities:
-                for component, probability in component_probabilities.items():
-                    st.metric(
-                        str(component).replace("_", " ").title(),
-                        f"{float(probability):.1%}",
-                    )
-            st.caption(
-                "The ensemble combines locally-run model outputs; confidence "
-                "does not verify whether claims are factually true."
-            )
-
-
-    # --------------------------------------------------------
-    # DECISION RANGE
-    # --------------------------------------------------------
-
-    half_margin = uncertainty_margin / 2
-
-    lower_limit = max(
-        0.0,
-        threshold - half_margin,
-    )
-
-    upper_limit = min(
-        1.0,
-        threshold + half_margin,
-    )
-
-
     # ========================================================
     # RESULT
     # ========================================================
 
-    st.markdown('<div class="section-kicker">02 / Model output</div>', unsafe_allow_html=True)
-    st.subheader("Analysis result")
+    st.subheader("Result")
 
-    if prediction == "FAKE":
-
-        st.error(
-            "⚠️ FAKE PATTERN DETECTED"
-        )
-
-        st.write(
-            "The language of this text is more closely "
-            "associated with examples from the FAKE category "
-            "in the model's training data."
-        )
-
-    elif prediction == "REAL":
-
-        st.success(
-            "✅ REAL PATTERN DETECTED"
-        )
-
-        st.write(
-            "The language of this text is more closely "
-            "associated with examples from the REAL category "
-            "in the model's training data."
-        )
-
-    elif prediction == "UNCERTAIN":
-
-        st.warning(
-            "❓ INCONCLUSIVE RESULT"
-        )
-
-        st.write(
-            "The prediction is close to the classification "
-            "boundary, so the system cannot make a clear "
-            "classification."
-        )
-
-    else:
-        st.warning(
-            "◈ INSUFFICIENT CONFIDENCE"
-        )
-
-        st.write(
-            "The advanced model's calibrated uncertainty estimate is too high "
-            "to assign a reliable category. Consider providing more context."
-        )
-
-
-    # ========================================================
-    # RESULT SUMMARY
-    # ========================================================
-
-    result1, result2, result3 = st.columns(3)
-
-    with result1:
-
-        st.metric(
-            "Classification",
-            prediction,
-        )
-
-    with result2:
-
-        st.metric(
-            "Fake Score",
-            f"{fake_probability:.1%}",
-        )
-
-    with result3:
-
-        st.metric(
-            "Real Score",
-            f"{real_probability:.1%}",
-        )
-
-
-    st.write("")
-
-
-    # ========================================================
-    # PROBABILITY
-    # ========================================================
-
-    st.subheader("Probability distribution")
-
-    st.progress(
-        fake_probability,
-        text=f"Fake category: {fake_probability:.1%}",
+    display_prediction = {
+        "FAKE": "Likely Misleading",
+        "REAL": "Likely Credible",
+        "UNCERTAIN": "Uncertain",
+        "Insufficient Confidence": "Insufficient Confidence",
+    }.get(prediction, prediction)
+    confidence = max(fake_probability, real_probability)
+    escaped_text = html.escape(text)
+    escaped_prediction = html.escape(display_prediction)
+    calibration_method = html.escape(str(advanced_result["calibration_method"]))
+    confidence_label = (
+        "Raw model confidence"
+        if "not calibrated" in str(advanced_result["calibration_method"]).casefold()
+        or "uncalibrated" in str(advanced_result["calibration_method"]).casefold()
+        else "Calibrated confidence"
     )
-
+    prediction_class = {
+        "Likely Credible": "credible",
+        "Likely Misleading": "misleading",
+        "Uncertain": "uncertain",
+    }.get(display_prediction, "uncertain")
+    st.markdown(
+        f"""
+        <section class="evidence-card">
+            <div class="evidence-label">Model prediction · not a fact-check</div>
+            <div class="evidence-prediction {prediction_class}">{escaped_prediction}</div>
+            <div>{confidence_label}: <strong>{confidence:.1%}</strong></div>
+            <div class="evidence-claim">{escaped_text}</div>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
     st.caption(
-        f"Classification zones: "
-        f"REAL < {lower_limit:.0%} | "
-        f"UNCERTAIN {lower_limit:.0%}–{upper_limit:.0%} | "
-        f"FAKE > {upper_limit:.0%}"
+        "The model compares writing patterns. It does not verify whether the story is true."
     )
 
+    indicators = list(advanced_result.get("indicators", []))
+    if not indicators and pipeline is not None:
+        from advanced_models import baseline_feature_indicators
 
-    # ========================================================
-    # TEXT STATISTICS
-    # ========================================================
+        indicators = baseline_feature_indicators(pipeline, text)
 
-    st.subheader("Text statistics")
-
-    stat1, stat2, stat3 = st.columns(3)
-
-    with stat1:
-
-        st.metric(
-            "Words",
-            len(text.strip().split()),
+    component_probabilities = advanced_result.get("components", {})
+    with st.expander("More about this result", expanded=False):
+        st.markdown("**Model confidence**")
+        st.progress(fake_probability, text=f"Misleading-pattern score: {fake_probability:.1%}")
+        st.caption(
+            f"Credible-pattern score: {real_probability:.1%} · "
+            f"Calibration: {calibration_method}"
         )
+        if component_probabilities:
+            st.markdown("**Signals from the selected model**")
+            component_columns = st.columns(len(component_probabilities))
+            for column, (component_name, component_probability) in zip(
+                component_columns, component_probabilities.items(), strict=True
+            ):
+                with column:
+                    st.metric(
+                        str(component_name).replace("_", " ").title(),
+                        f"{float(component_probability):.1%}",
+                    )
+        if indicators:
+            st.markdown("**Words that influenced the baseline model**")
+            for item in indicators:
+                st.markdown(
+                    '<span class="indicator-chip">'
+                    f"{html.escape(str(item['feature']))} · "
+                    f"{html.escape(str(item['direction']))}</span>",
+                    unsafe_allow_html=True,
+                )
+            st.caption("These are learned associations, not facts or proof.")
+        else:
+            st.caption(
+                "Word-level indicators are not available for this selected model. "
+                "Model scores are statistical signals, not verified evidence."
+            )
+        st.markdown("**Raw and calibrated scores**")
+        score_columns = st.columns(2)
+        score_columns[0].metric("Raw score", f"{raw_fake_probability:.1%}")
+        score_columns[1].metric("Calibrated score", f"{fake_probability:.1%}")
+        if "raw_components" in advanced_result:
+            st.json(
+                {
+                    "Raw component scores": advanced_result["raw_components"],
+                    "Calibrated component scores": component_probabilities,
+                }
+            )
+        st.caption(f"Text length: {len(text.strip().split())} words · {len(text)} characters")
 
-    with stat2:
+        if is_short_input(text):
+            st.warning(
+                "This text is quite short. A longer excerpt may give the model more "
+                "language patterns to compare."
+            )
 
-        st.metric(
-            "Characters",
-            len(text),
-        )
+        if prediction == "FAKE":
+            interpretation = (
+                "The model found language patterns more associated with misleading "
+                "examples in its training data."
+            )
+        elif prediction == "REAL":
+            interpretation = (
+                "The model found language patterns more associated with credible "
+                "examples in its training data."
+            )
+        elif prediction == "UNCERTAIN":
+            interpretation = "The score is close to the selected decision threshold."
+        else:
+            interpretation = (
+                "The score did not meet the minimum confidence setting. Consider "
+                "adding more context."
+            )
+        st.write(interpretation)
 
-    with stat3:
+        if show_token_attributions and use_advanced_model:
+            from advanced_models import explain_transformer
 
-        st.metric(
-            "Model Confidence",
-            f"{max(fake_probability, real_probability):.1%}",
-        )
-
-
-    # ========================================================
-    # SHORT TEXT
-    # ========================================================
-
-    if is_short_input(text):
-
-        st.warning(
-            "This input is quite short. "
-            "A longer article excerpt may provide the model "
-            "with more useful language patterns."
-        )
-
-
-    # ========================================================
-    # INTERPRETATION
-    # ========================================================
-
-    st.subheader("Interpretation")
-
-    if prediction == "FAKE":
-
-        st.write(
-            "The classifier has identified linguistic patterns "
-            "that are statistically closer to the FAKE examples "
-            "used during training."
-        )
-
-    elif prediction == "REAL":
-
-        st.write(
-            "The classifier has identified linguistic patterns "
-            "that are statistically closer to the REAL examples "
-            "used during training."
-        )
-
-    else:
-
-        st.write(
-            "The prediction did not meet the confidence requirement for either category."
-        )
-
+            attribution_target = "FAKE" if fake_probability >= threshold else "REAL"
+            attribution = explain_transformer(
+                advanced_artifact_dir, text, target=attribution_target, steps=8
+            )
+            token_indicators = sorted(
+                attribution["tokens"],
+                key=lambda item: abs(item["attribution"]),
+                reverse=True,
+            )[:8]
+            st.markdown("**Word-level model explanation · Integrated Gradients**")
+            st.write(
+                [
+                    {
+                        "token": item["token"],
+                        "attribution": round(item["attribution"], 5),
+                    }
+                    for item in token_indicators
+                ]
+            )
+            st.caption("These local model attributions are not verified evidence.")
 
     # ========================================================
     # DISCLAIMER
@@ -919,54 +1141,90 @@ if analyze:
     )
 
 
-# ============================================================
-# TECHNOLOGY SECTION
-# ============================================================
+if advanced_metrics:
+    with st.expander("Model performance and calibration", expanded=False):
+        st.caption(
+            "Evaluation scores show how the model performed on test data; "
+            "they do not prove a story is true."
+        )
+        report_rows = []
+        for model_name, model_report in advanced_metrics.get("holdout_test", {}).items():
+            if model_report.get("status") != "available":
+                continue
+            has_comparison = False
+            for probability_kind, metrics_key in (
+                ("Raw", "raw_holdout_test"),
+                ("Platt calibrated", "calibrated_holdout_test"),
+            ):
+                model_metrics = model_report.get(metrics_key)
+                if not model_metrics:
+                    continue
+                has_comparison = True
+                report_rows.append(
+                    {
+                        "Model": model_name,
+                        "Probability": probability_kind,
+                        "Accuracy": model_metrics.get("accuracy"),
+                        "Precision": model_metrics.get("precision"),
+                        "Recall": model_metrics.get("recall"),
+                        "F1": model_metrics.get("f1"),
+                        "ROC-AUC": model_metrics.get("roc_auc"),
+                        "PR-AUC": model_metrics.get("pr_auc"),
+                        "Brier": model_metrics.get("brier_score"),
+                        "Calibration error": model_metrics.get("calibration_error"),
+                    }
+                )
+                st.write(
+                    f"{model_name} · {probability_kind} confusion matrix "
+                    "(rows=true REAL/FAKE, columns=predicted REAL/FAKE)"
+                )
+                st.write(model_metrics.get("confusion_matrix"))
+            if not has_comparison and model_report.get("holdout_test"):
+                model_metrics = model_report["holdout_test"]
+                report_rows.append(
+                    {
+                        "Model": model_name,
+                        "Probability": "Previously saved score (retrain for calibration comparison)",
+                        "Accuracy": model_metrics.get("accuracy"),
+                        "Precision": model_metrics.get("precision"),
+                        "Recall": model_metrics.get("recall"),
+                        "F1": model_metrics.get("f1"),
+                        "ROC-AUC": model_metrics.get("roc_auc"),
+                        "PR-AUC": model_metrics.get("pr_auc"),
+                        "Brier": model_metrics.get("brier_score"),
+                        "Calibration error": model_metrics.get("calibration_error"),
+                    }
+                )
+                st.write(model_metrics.get("confusion_matrix"))
+        if report_rows:
+            st.dataframe(report_rows, use_container_width=True, hide_index=True)
+        else:
+            st.info("No trained advanced evaluation metrics are available yet.")
 
-st.markdown('<div class="section-kicker">03 / Under the hood</div>', unsafe_allow_html=True)
-st.subheader("How the system reads text")
+        calibration_curve_path = default_advanced_artifact_dir() / "calibration_curve.png"
+        if calibration_curve_path.is_file():
+            st.image(str(calibration_curve_path), caption="Holdout calibration curve")
+        for component_name, component_status in advanced_metrics.get("components", {}).items():
+            if not component_status.get("available"):
+                st.caption(
+                    f"{component_name.title()} not available: "
+                    f"{component_status.get('reason', 'not trained')}"
+                )
 
-tech1, tech2, tech3 = st.columns(3)
 
-with tech1:
-
-    st.markdown(
-        """
-        <div class="tech-card">
-            <div class="tech-index">MODULE 01</div>
-            <div class="tech-title">Text representation</div>
-            <p class="tech-copy">The submitted language is converted into numerical features the model can process.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
+with st.expander("How this tool works", expanded=False):
+    st.write(
+        "NewsCheck compares writing patterns in your text with patterns learned "
+        "from labeled examples. It does not check sources or confirm facts."
     )
-
-
-with tech2:
-
-    st.markdown(
-        """
-        <div class="tech-card">
-            <div class="tech-index">MODULE 02</div>
-            <div class="tech-title">TF-IDF weighting</div>
-            <p class="tech-copy">Word and phrase importance is measured against the model's training collection.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    st.write(
+        "The selected model runs locally. When available, Platt scaling adjusts "
+        "probabilities using validation data. Predictions near the decision "
+        "threshold may be marked uncertain."
     )
-
-
-with tech3:
-
-    st.markdown(
-        """
-        <div class="tech-card">
-            <div class="tech-index">MODULE 03</div>
-            <div class="tech-title">Classification</div>
-            <p class="tech-copy">Logistic Regression estimates the probability of each learned language category.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    st.write(
+        "Confidence is not the same as truth. Verify important claims with "
+        "reliable, independent sources."
     )
 
 

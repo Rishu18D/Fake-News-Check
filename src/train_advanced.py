@@ -14,13 +14,21 @@ import numpy as np
 import pandas as pd
 import sklearn
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import GridSearchCV, StratifiedKFold, cross_validate, train_test_split
+from sklearn.model_selection import (
+    GridSearchCV,
+    StratifiedKFold,
+    cross_val_predict,
+    cross_validate,
+    train_test_split,
+)
 
 from advanced_models import (
     _build_fusion_network,
     _pool_hidden,
+    apply_platt_calibrator,
     augment_training_texts,
     evaluate_probabilities,
+    fit_platt_calibrator,
     save_bundle,
     split_labeled_texts,
 )
@@ -61,6 +69,78 @@ def _component_report(probabilities: np.ndarray | None, y_test: np.ndarray, thre
         "status": "available",
         "holdout_test": evaluate_probabilities(y_test, probabilities, threshold),
     }
+
+
+def _comparison_report(
+    raw_probabilities: np.ndarray,
+    calibrated_probabilities: np.ndarray,
+    y_test: np.ndarray,
+    threshold: float,
+) -> dict[str, Any]:
+    calibrated_metrics = evaluate_probabilities(y_test, calibrated_probabilities, threshold)
+    return {
+        "status": "available",
+        "holdout_test": calibrated_metrics,
+        "raw_holdout_test": evaluate_probabilities(y_test, raw_probabilities, threshold),
+        "calibrated_holdout_test": calibrated_metrics,
+        "calibration": "Platt scaling fitted on validation predictions only",
+    }
+
+
+def _fit_cross_validated_ensemble_calibrator(
+    ensemble_features: np.ndarray,
+    labels: np.ndarray,
+    random_state: int,
+):
+    """Calibrate ensemble scores using validation-only out-of-fold predictions."""
+    class_counts = np.bincount(labels, minlength=2)
+    folds = min(3, int(class_counts.min()))
+    if folds < 2:
+        return None
+    splitter = StratifiedKFold(n_splits=folds, shuffle=True, random_state=random_state)
+    template = LogisticRegression(max_iter=1000, random_state=random_state)
+    oof_probability = cross_val_predict(
+        template, ensemble_features, labels, cv=splitter, method="predict_proba"
+    )[:, 1]
+    return fit_platt_calibrator(labels, oof_probability)
+
+
+def _save_calibration_curve(reports: dict[str, Any], artifact_dir: Path) -> None:
+    import matplotlib.pyplot as plt
+
+    figure, axis = plt.subplots(figsize=(7, 6))
+    axis.plot([0, 1], [0, 1], linestyle="--", color="#8b98a8", label="Perfect calibration")
+    for name, report in reports.items():
+        if report.get("status") != "available":
+            continue
+        for key, suffix in (
+            ("raw_holdout_test", "raw"),
+            ("calibrated_holdout_test", "Platt calibrated"),
+        ):
+            metrics = report.get(key)
+            if not metrics:
+                continue
+            bins = [
+                item for item in metrics["calibration_bins"] if item["count"] > 0
+            ]
+            if bins:
+                axis.plot(
+                    [item["mean_probability_fake"] for item in bins],
+                    [item["observed_fake_rate"] for item in bins],
+                    marker="o",
+                    label=f"{name} ({suffix})",
+                )
+    axis.set(
+        title="Holdout probability calibration",
+        xlabel="Mean predicted probability (FAKE)",
+        ylabel="Observed FAKE rate",
+        xlim=(0, 1),
+        ylim=(0, 1),
+    )
+    axis.legend(loc="best", fontsize="small")
+    figure.tight_layout()
+    figure.savefig(artifact_dir / "calibration_curve.png", dpi=160)
+    plt.close(figure)
 
 
 def _bounded_stratified_indices(
@@ -710,16 +790,71 @@ def main(argv: list[str] | None = None) -> None:
                 sentence_failure or "Sentence-transformer component was unavailable",
             )
 
+    ensemble_validation_features = None
     if {"baseline", "transformer"}.issubset(validation_probabilities):
-        ensemble = LogisticRegression(max_iter=1000, random_state=args.random_state)
-        ensemble_validation = np.column_stack(
+        baseline_validation_for_ensemble = validation_probabilities["baseline"][
+            neural_validation_indices
+        ]
+        ensemble_validation_features = np.column_stack(
             (
-                validation_probabilities["baseline"][neural_validation_indices],
+                baseline_validation_for_ensemble,
                 validation_probabilities["transformer"],
             )
         )
-        ensemble.fit(ensemble_validation, neural_validation_labels)
-        ensemble_test = ensemble.predict_proba(
+
+    calibrators: dict[str, Any] = {}
+    component_labels = {
+        "baseline": validation_labels,
+        "embedding": neural_validation_labels,
+        "transformer": neural_validation_labels,
+        "fusion": neural_validation_labels,
+    }
+    for component, validation_probability in validation_probabilities.items():
+        calibrators[component] = fit_platt_calibrator(
+            component_labels[component], validation_probability
+        )
+        test_probabilities[component] = apply_platt_calibrator(
+            calibrators[component], test_probabilities[component]
+        )
+        if component == "baseline":
+            component_test_labels = neural_test_labels
+            raw_component_test = baseline_test[neural_test_indices]
+            calibrated_component_test = test_probabilities["baseline"][
+                neural_test_indices
+            ]
+        else:
+            component_test_labels = neural_test_labels
+            raw_component_test = (
+                embedding_test
+                if component == "embedding"
+                else transformer_result["test_probabilities"]
+                if component == "transformer"
+                else fusion_result["test_probabilities"]
+            )
+            calibrated_component_test = test_probabilities[component]
+        report_key = "fused" if component == "fusion" else component
+        reports[report_key] = _comparison_report(
+            raw_component_test,
+            calibrated_component_test,
+            component_test_labels,
+            args.threshold,
+        )
+
+    if ensemble_validation_features is not None:
+        calibrated_validation_features = np.column_stack(
+            (
+                apply_platt_calibrator(
+                    calibrators["baseline"],
+                    validation_probabilities["baseline"][neural_validation_indices],
+                ),
+                apply_platt_calibrator(
+                    calibrators["transformer"], validation_probabilities["transformer"]
+                ),
+            )
+        )
+        ensemble = LogisticRegression(max_iter=1000, random_state=args.random_state)
+        ensemble.fit(calibrated_validation_features, neural_validation_labels)
+        ensemble_test_raw = ensemble.predict_proba(
             np.column_stack(
                 (
                     test_probabilities["baseline"][neural_test_indices],
@@ -727,12 +862,32 @@ def main(argv: list[str] | None = None) -> None:
                 )
             )
         )[:, 1]
+        ensemble_calibrator = _fit_cross_validated_ensemble_calibrator(
+            calibrated_validation_features,
+            neural_validation_labels,
+            args.random_state,
+        )
+        calibrators["ensemble"] = ensemble_calibrator
+        ensemble_test_calibrated = apply_platt_calibrator(
+            ensemble_calibrator, ensemble_test_raw
+        )
         components["ensemble"] = ensemble
         component_state["ensemble"] = {
             "available": True,
             "fit_on": "validation predictions from training-only component models",
+            "calibration": (
+                "Platt scaling fitted on validation-only out-of-fold ensemble predictions"
+                if ensemble_calibrator is not None
+                else "Raw ensemble probabilities; validation split too small for calibration"
+            ),
         }
-        reports["ensemble"] = _component_report(ensemble_test, neural_test_labels, args.threshold)
+        reports["ensemble"] = _comparison_report(
+            ensemble_test_raw,
+            ensemble_test_calibrated,
+            neural_test_labels,
+            args.threshold,
+        )
+        reports["ensemble"]["calibration"] = component_state["ensemble"]["calibration"]
 
     bundle: dict[str, Any] = {
         "format_version": 1,
@@ -745,6 +900,7 @@ def main(argv: list[str] | None = None) -> None:
         "baseline": baseline,
         "embedding_classifier": components.get("embedding_classifier"),
         "ensemble": components.get("ensemble"),
+        "calibrators": calibrators,
         "neural_config": {
             "hidden_size": transformer_result["hidden_size"] if transformer_result else None,
             "sentence_size": (
@@ -835,6 +991,7 @@ def main(argv: list[str] | None = None) -> None:
         },
     }
     _write_json(metrics, artifact_dir / "advanced_metrics.json")
+    _save_calibration_curve(reports, artifact_dir)
     print(f"Saved advanced bundle and metrics to {artifact_dir}")
 
 

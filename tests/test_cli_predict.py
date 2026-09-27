@@ -1,6 +1,7 @@
 import joblib
+import pytest
 
-from detect_fake_news import classify_probability, predict_one
+from detect_fake_news import classify_probability, main, predict_one
 from train_model import build_pipeline
 
 
@@ -26,5 +27,23 @@ def test_predict_one_returns_expected_keys(tmp_path):
     joblib.dump(pipeline, model_path)
     result = predict_one(model_path, "reuters policy announcement", 0.5)
     assert set(result) == {"label", "prob_fake", "threshold", "uncertainty_margin", "model_path"}
-    assert result["label"] in {"REAL", "FAKE", "UNCERTAIN"}
+    assert result["label"] in {"REAL", "FAKE", "UNCERTAIN", "Insufficient Confidence"}
     assert 0.0 <= result["prob_fake"] <= 1.0
+
+    low_confidence = predict_one(
+        model_path,
+        "reuters policy announcement",
+        0.5,
+        confidence_threshold=1.0,
+    )
+    assert low_confidence["label"] == "Insufficient Confidence"
+
+
+def test_component_requires_advanced_model(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        ["detect_fake_news.py", "--component", "transformer", "--text", "A news story"],
+    )
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2

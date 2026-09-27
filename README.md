@@ -86,7 +86,7 @@ Fake-news probability
         ↓
 Classification logic
         ↓
-REAL / FAKE / UNCERTAIN
+Likely Credible / Likely Misleading / Uncertain / Insufficient Confidence
         ↓
 Result + Probability + Confidence
 
@@ -95,8 +95,21 @@ Result + Probability + Confidence
 The original TF-IDF + Logistic Regression pipeline remains the lightweight
 baseline. An optional advanced training workflow adds a locally-run transformer,
 Sentence-Transformer semantic features, attention-based feature fusion, and a
-validation-calibrated ensemble. The dashboard exposes the advanced ensemble
-after its artifacts have been trained.
+validation-calibrated ensemble. Trained weights are local artifacts under
+`outputs/advanced` and are intentionally excluded from source control; the
+dashboard offers only components whose required local files are present.
+When an ensemble is ready, it is selected by default while retaining the
+baseline as an option.
+
+Start the application from the repository root:
+
+```powershell
+.\.venv\Scripts\python.exe -m streamlit run src\streamlit_app.py
+```
+
+The saved Transformer, sentence embedding, and fusion artifacts require the
+optional runtime dependencies below. The baseline classifier remains usable
+without them.
 
 Install the optional open-source dependencies in the same Python environment:
 
@@ -123,15 +136,31 @@ Use `--neural-train-limit` and `--neural-eval-limit` to change these limits.
 Comparisons therefore describe the configured training protocol, not a
 same-compute or same-training-volume benchmark.
 
+The local development `outputs/advanced` bundle was trained on CPU with a
+96-example neural training cap, a 40-example validation/test cap, batch size 8,
+and one epoch so the Transformer, embeddings, fusion model, and ensemble are
+available in the development workspace. The artifact directory is ignored by
+Git and is not included in a source checkout. To generate it locally, use the
+training command above. These deliberately small caps are a smoke-trained local
+model, not a production-quality benchmark. For a more representative run, use
+the default 1,000/300 caps (or larger limits) and review the new holdout report.
+
 The advanced evaluation writes model comparisons, validation protocol details,
 and ablation results to `outputs/advanced/advanced_metrics.json`. It keeps the
 holdout test set separate from training, model selection, and probability
-calibration. Integrated Gradients token attributions are available for the
-transformer through the advanced explainability API. Treat the report
-cautiously: the bundled dataset has known source
-and writing-style artifacts, and good benchmark metrics do not mean that a
-model can verify claims or generalize to current news. Advanced uncertainty
-may return **Insufficient Confidence** rather than forcing a prediction.
+calibration. Component calibrators use validation predictions; ensemble
+calibration uses validation-only out-of-fold predictions. The report compares
+raw and Platt-scaled holdout probabilities using accuracy, precision, recall,
+F1, ROC-AUC, PR-AUC, Brier score, confusion matrices, and calibration curves.
+Integrated Gradients token attributions are available from the dashboard for
+the Transformer and through the advanced explainability API. The dashboard's
+evidence-style card summarizes the analyzed text, prediction, confidence, and
+model indicators; it is explicitly not verified external evidence. Set the
+minimum confidence threshold in the dashboard to control when predictions
+return **Insufficient Confidence**. Treat metrics cautiously: the bundled
+dataset has known source and writing-style artifacts, and good benchmark
+metrics do not mean that a model can verify claims or generalize to current
+news.
 
 To use the baseline instead, leave `outputs/advanced` untrained or choose the
 baseline classifier in the dashboard. Its CLI and existing model artifacts
