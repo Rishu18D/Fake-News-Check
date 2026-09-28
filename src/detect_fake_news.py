@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 
 from model_compat import load_pipeline
@@ -25,11 +26,11 @@ def classify_probability(
     default threshold=0.50 and uncertainty_margin=0.10, probabilities from
     0.45 to 0.55 are labeled UNCERTAIN instead of forcing a brittle decision.
     """
-    if not 0.0 <= prob_fake <= 1.0:
+    if not math.isfinite(prob_fake) or not 0.0 <= prob_fake <= 1.0:
         raise ValueError("prob_fake must be between 0 and 1")
-    if not 0.0 <= threshold <= 1.0:
+    if not math.isfinite(threshold) or not 0.0 <= threshold <= 1.0:
         raise ValueError("threshold must be between 0 and 1")
-    if uncertainty_margin < 0.0:
+    if not math.isfinite(uncertainty_margin) or uncertainty_margin < 0.0:
         raise ValueError("uncertainty_margin must be non-negative")
 
     half_margin = uncertainty_margin / 2
@@ -48,6 +49,10 @@ def predict_one(
     uncertainty_margin: float = 0.10,
     confidence_threshold: float = 0.60,
 ) -> dict[str, object]:
+    if not math.isfinite(threshold) or not 0.0 <= threshold <= 1.0:
+        raise ValueError("threshold must be between 0 and 1")
+    if not math.isfinite(uncertainty_margin) or uncertainty_margin < 0.0:
+        raise ValueError("uncertainty_margin must be non-negative")
     if not 0.5 <= confidence_threshold <= 1.0:
         raise ValueError("confidence_threshold must be between 0.5 and 1")
     if not pipeline_path.exists():

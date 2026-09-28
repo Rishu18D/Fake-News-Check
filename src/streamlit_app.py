@@ -1000,7 +1000,8 @@ def load_metrics(path: Path) -> dict | None:
         return json.loads(
             path.read_text(encoding="utf-8")
         )
-    except Exception:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        st.warning(f"Could not read model metrics from {path.name}: {error}")
         return None
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import platform
 import sys
 from dataclasses import asdict, dataclass
@@ -48,6 +49,7 @@ class DatasetProfile:
     total_rows: int
     rows_after_deduplication: int
     duplicate_rows_removed: int
+    conflicting_duplicate_rows_removed: int
     class_balance: dict[str, int]
     text_column_used: str
     title_column_used: bool
@@ -99,6 +101,10 @@ def build_labeled_frame(real_path: Path, fake_path: Path, text_col: str, include
     before = len(data)
     data["clean_text_for_dedupe"] = data["text_for_model"].map(clean_text)
     data = data[data["clean_text_for_dedupe"].str.len() > 0].copy()
+    label_counts = data.groupby("clean_text_for_dedupe")["label"].nunique()
+    conflicting_texts = set(label_counts[label_counts > 1].index)
+    conflicting_rows = int(data["clean_text_for_dedupe"].isin(conflicting_texts).sum())
+    data = data[~data["clean_text_for_dedupe"].isin(conflicting_texts)]
     data = data.drop_duplicates(subset=["clean_text_for_dedupe", "label"]).reset_index(drop=True)
     after = len(data)
 
@@ -106,6 +112,7 @@ def build_labeled_frame(real_path: Path, fake_path: Path, text_col: str, include
         total_rows=before,
         rows_after_deduplication=after,
         duplicate_rows_removed=before - after,
+        conflicting_duplicate_rows_removed=conflicting_rows,
         class_balance=data["label"].value_counts().reindex(LABEL_NAMES, fill_value=0).astype(int).to_dict(),
         text_column_used=real_col,
         title_column_used=bool(include_title and "title" in data.columns),
@@ -334,7 +341,20 @@ def parse_args() -> argparse.Namespace:
         help="When the group column is not confounded with the label, also run an "
         "out-of-source holdout (whole groups held out of training) and report it.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if not 0.0 < args.test_size < 1.0:
+        parser.error("--test-size must be between 0 and 1 (exclusive)")
+    if not math.isfinite(args.threshold) or not 0.0 <= args.threshold <= 1.0:
+        parser.error("--threshold must be finite and between 0 and 1")
+    if args.cv_folds < 2:
+        parser.error("--cv-folds must be at least 2")
+    if args.max_features < 1 or args.min_df < 1:
+        parser.error("--max-features and --min-df must be positive")
+    if not 0.0 < args.max_df <= 1.0:
+        parser.error("--max-df must be greater than 0 and at most 1")
+    if args.C <= 0.0 or not math.isfinite(args.C):
+        parser.error("--C must be a finite positive number")
+    return args
 
 
 def main() -> None:

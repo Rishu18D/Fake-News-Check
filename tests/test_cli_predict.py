@@ -12,6 +12,13 @@ def test_classify_probability_uses_uncertain_band():
     assert classify_probability(0.70, threshold=0.5, uncertainty_margin=0.10) == "FAKE"
 
 
+def test_classify_probability_rejects_non_finite_settings():
+    with pytest.raises(ValueError):
+        classify_probability(0.5, threshold=float("nan"))
+    with pytest.raises(ValueError):
+        classify_probability(0.5, uncertainty_margin=float("inf"))
+
+
 def test_predict_one_returns_expected_keys(tmp_path):
     pipeline = build_pipeline(max_features=100, min_df=1, max_df=1.0, ngram_max=1, C=1.0)
     pipeline.fit(
