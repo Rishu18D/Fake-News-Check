@@ -22,7 +22,7 @@ st.set_page_config(
     page_title="NewsCheck",
     page_icon="🛡️",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 st.markdown(
@@ -692,6 +692,269 @@ st.markdown(
 
         .hero-shell {
             border-radius: 0;
+        }
+    }
+
+    :root {
+        color-scheme: dark;
+        --primary-color: #8d82ff;
+        --ink: #f1f2ff;
+        --muted: #a5a8c3;
+        --cyan: #8de9e0;
+        --blue: #91a5ff;
+        --pink: #ff9eac;
+        --panel: rgba(23, 27, 49, 0.64);
+        --line: rgba(208, 214, 255, 0.15);
+    }
+
+    [data-testid="stAppViewContainer"] {
+        color: var(--ink);
+        background:
+            radial-gradient(ellipse at 14% 8%, rgba(112, 102, 213, 0.20), transparent 36rem),
+            radial-gradient(ellipse at 92% 32%, rgba(57, 151, 166, 0.13), transparent 32rem),
+            #0b0d18;
+    }
+
+    [data-testid="stAppViewContainer"]::before {
+        position: fixed;
+        z-index: 0;
+        pointer-events: none;
+        inset: 0;
+        display: block;
+        content: "";
+        opacity: 0.12;
+        background-image:
+            linear-gradient(rgba(187, 198, 255, 0.12) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(187, 198, 255, 0.12) 1px, transparent 1px);
+        background-size: 56px 56px;
+        mask-image: linear-gradient(to bottom, black, transparent 70%);
+    }
+
+    [data-testid="stHeader"] {
+        background: rgba(11, 13, 24, 0.55);
+        backdrop-filter: blur(16px);
+    }
+
+    .block-container {
+        position: relative;
+        z-index: 1;
+    }
+
+    [data-testid="stSidebar"] {
+        background: rgba(15, 18, 34, 0.78);
+        backdrop-filter: blur(24px) saturate(140%);
+    }
+
+    [data-testid="stSidebar"] > div:first-child {
+        border-right: 1px solid rgba(208, 214, 255, 0.13);
+        background: transparent;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stSidebar"] label,
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stCaptionContainer"] {
+        color: #adb2cc;
+    }
+
+    h1, h2, h3,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {
+        color: #f1f2ff;
+    }
+
+    .sidebar-brand-name {
+        color: #f1f2ff;
+    }
+
+    .sidebar-brand-name span,
+    .hero-title span,
+    .tech-index,
+    .tech-title {
+        color: #8de9e0;
+    }
+
+    .sidebar-tagline {
+        color: #9298b5;
+    }
+
+    .hero-shell {
+        padding: clamp(1.35rem, 4vw, 2rem);
+        border: 1px solid rgba(213, 219, 255, 0.16);
+        border-radius: 20px;
+        background:
+            linear-gradient(135deg, rgba(42, 46, 78, 0.64), rgba(20, 25, 46, 0.52)),
+            rgba(22, 26, 47, 0.56);
+        box-shadow:
+            0 20px 55px rgba(0, 0, 0, 0.22),
+            inset 0 1px rgba(255, 255, 255, 0.11);
+        backdrop-filter: blur(24px) saturate(150%);
+        -webkit-backdrop-filter: blur(24px) saturate(150%);
+    }
+
+    .hero-title {
+        color: #f5f5ff;
+    }
+
+    .hero-copy {
+        color: #b6bad2;
+    }
+
+    [data-testid="stTextArea"] textarea {
+        min-height: 190px;
+        border: 0;
+        border-radius: 11px;
+        background: rgba(16, 19, 36, 0.25);
+        color: #f1f2ff;
+        box-shadow: none;
+    }
+
+    [data-testid="stTextAreaRootElement"] {
+        overflow: hidden;
+        border: 1px solid rgba(203, 211, 255, 0.19);
+        border-radius: 14px;
+        background: rgba(24, 28, 49, 0.54);
+        box-shadow:
+            inset 0 1px rgba(255, 255, 255, 0.06),
+            0 12px 35px rgba(0, 0, 0, 0.12);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+    }
+
+    [data-testid="stTextAreaRootElement"]:focus-within {
+        border-color: rgba(141, 233, 224, 0.55);
+        box-shadow:
+            0 0 0 3px rgba(141, 233, 224, 0.10),
+            0 14px 40px rgba(0, 0, 0, 0.16);
+    }
+
+    [data-testid="stTextArea"] textarea::placeholder {
+        color: #858ba8;
+    }
+
+    [data-testid="stButton"] > button {
+        border: 1px solid rgba(164, 171, 255, 0.45);
+        border-radius: 11px;
+        background: linear-gradient(105deg, #7770dc, #5a91c9);
+        box-shadow: 0 8px 24px rgba(94, 105, 203, 0.20);
+        transition: transform 140ms ease, filter 140ms ease, box-shadow 140ms ease;
+    }
+
+    [data-testid="stButton"] > button:hover {
+        transform: translateY(-1px);
+        border-color: rgba(206, 211, 255, 0.72);
+        background: linear-gradient(105deg, #827be8, #69a1d7);
+        box-shadow: 0 12px 30px rgba(94, 105, 203, 0.28);
+    }
+
+    [data-testid="stButton"] > button:focus {
+        box-shadow: 0 0 0 3px rgba(141, 233, 224, 0.22);
+    }
+
+    [data-testid="stButton"] > button [data-testid="stMarkdownContainer"] p {
+        color: #ffffff;
+    }
+
+    [data-testid="stMetric"] {
+        border: 1px solid rgba(205, 212, 255, 0.14);
+        border-radius: 12px;
+        background: rgba(34, 39, 65, 0.54);
+        box-shadow: inset 0 1px rgba(255, 255, 255, 0.07);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+    }
+
+    [data-testid="stMetricLabel"] {
+        color: #a5a9c4;
+    }
+
+    [data-testid="stMetricValue"] {
+        color: #f1f2ff;
+    }
+
+    [data-testid="stProgress"] > div > div {
+        background: linear-gradient(90deg, #8de9e0, #91a5ff);
+    }
+
+    [data-testid="stAlert"] {
+        border: 1px solid rgba(205, 212, 255, 0.15);
+        border-radius: 12px;
+        background: rgba(31, 36, 59, 0.70);
+        color: #e5e7fa;
+        backdrop-filter: blur(16px);
+    }
+
+    [data-testid="stSlider"] [role="slider"] {
+        border-color: #8de9e0;
+    }
+
+    [data-testid="stDivider"] {
+        border-color: rgba(205, 212, 255, 0.14);
+    }
+
+    .evidence-card {
+        border: 1px solid rgba(209, 216, 255, 0.19);
+        border-left: 3px solid rgba(141, 233, 224, 0.76);
+        border-radius: 15px;
+        background:
+            linear-gradient(135deg, rgba(43, 49, 79, 0.74), rgba(24, 30, 52, 0.60)),
+            rgba(25, 30, 51, 0.62);
+        box-shadow:
+            0 16px 44px rgba(0, 0, 0, 0.18),
+            inset 0 1px rgba(255, 255, 255, 0.09);
+        backdrop-filter: blur(22px) saturate(140%);
+        -webkit-backdrop-filter: blur(22px) saturate(140%);
+    }
+
+    .evidence-label {
+        color: #afb4cf;
+    }
+
+    .evidence-prediction {
+        color: #f4f4ff;
+    }
+
+    .evidence-prediction.credible {
+        color: #8de9e0;
+    }
+
+    .evidence-prediction.misleading {
+        color: #ff9eac;
+    }
+
+    .evidence-prediction.uncertain {
+        color: #ffd58a;
+    }
+
+    .evidence-claim {
+        border-top-color: rgba(210, 217, 255, 0.13);
+        color: #c4c8dd;
+    }
+
+    .indicator-chip {
+        border-color: rgba(205, 212, 255, 0.16);
+        background: rgba(145, 165, 255, 0.09);
+        color: #d2d6ed;
+    }
+
+    .tech-card {
+        border-color: rgba(205, 212, 255, 0.14);
+        background: rgba(34, 39, 65, 0.54);
+        backdrop-filter: blur(16px);
+    }
+
+    [data-testid="stExpander"] {
+        overflow: hidden;
+        border-color: rgba(205, 212, 255, 0.14);
+        border-radius: 12px;
+        background: rgba(27, 32, 54, 0.54);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+    }
+
+    @media (max-width: 700px) {
+        .hero-shell {
+            border-radius: 16px;
         }
     }
     </style>
