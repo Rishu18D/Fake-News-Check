@@ -1005,6 +1005,36 @@ def load_metrics(path: Path) -> dict | None:
         return None
 
 
+def apply_operating_profile() -> None:
+    profiles = {
+        "Balanced starting point": (0.50, 0.10, 0.60),
+        "Fewer false-positive flags": (0.65, 0.10, 0.65),
+        "More sensitive screening": (0.35, 0.15, 0.55),
+    }
+    values = profiles[st.session_state["operating_profile"]]
+    st.session_state["decision_threshold"] = values[0]
+    st.session_state["uncertainty_margin"] = values[1]
+    st.session_state["confidence_threshold"] = values[2]
+
+
+def selected_validation_metrics(
+    component: str, use_advanced: bool, advanced_report: dict, baseline_report: dict
+) -> tuple[str, dict | None]:
+    if not use_advanced:
+        metrics = baseline_report.get("holdout_test")
+        return "Baseline", metrics if isinstance(metrics, dict) else None
+
+    report_name = {"fusion": "fused"}.get(component, component)
+    model_report = advanced_report.get("holdout_test", {}).get(report_name, {})
+    if not isinstance(model_report, dict) or model_report.get("status") != "available":
+        return report_name.replace("_", " ").title(), None
+    metrics = (
+        model_report.get("calibrated_holdout_test")
+        or model_report.get("holdout_test")
+    )
+    return report_name.replace("_", " ").title(), metrics if isinstance(metrics, dict) else None
+
+
 # ============================================================
 # HELPERS
 # ============================================================
@@ -1032,6 +1062,7 @@ advanced_artifact_dir = default_advanced_artifact_dir()
 advanced_components_available = advanced_component_availability(advanced_artifact_dir)
 advanced_available = any(advanced_components_available.values())
 advanced_metrics = load_metrics(default_advanced_metrics_path())
+baseline_metrics = load_metrics(project_root() / "outputs" / "metrics.json")
 
 
 # ============================================================
@@ -1070,6 +1101,26 @@ with st.sidebar:
     )
     with st.expander("Settings", expanded=False):
         st.caption("Most people can use the recommended defaults.")
+        st.selectbox(
+            "Starting operating profile",
+            [
+                "Balanced starting point",
+                "Fewer false-positive flags",
+                "More sensitive screening",
+            ],
+            key="operating_profile",
+            on_change=apply_operating_profile,
+            help=(
+                "Profiles set starting values only. They change the decision rule, "
+                "not the model or the quality of its evidence."
+            ),
+        )
+        if "decision_threshold" not in st.session_state:
+            st.session_state["decision_threshold"] = 0.50
+        if "uncertainty_margin" not in st.session_state:
+            st.session_state["uncertainty_margin"] = 0.10
+        if "confidence_threshold" not in st.session_state:
+            st.session_state["confidence_threshold"] = 0.60
         selected_model = st.selectbox(
             "Prediction model", model_options, index=default_model_index
         )
@@ -1077,25 +1128,32 @@ with st.sidebar:
             "Decision threshold",
             min_value=0.05,
             max_value=0.95,
-            value=0.50,
+            key="decision_threshold",
             step=0.01,
-            help="Adjust only if you need a stricter or more permissive decision.",
+            help=(
+                "The minimum fake-pattern score for a FAKE label. Raising it usually "
+                "reduces positive flags while missing more candidates; it does not "
+                "improve the model itself."
+            ),
         )
         uncertainty_margin = st.slider(
             "Uncertain range",
             min_value=0.00,
             max_value=0.30,
-            value=0.10,
+            key="uncertainty_margin",
             step=0.01,
-            help="Scores close to the threshold are shown as uncertain.",
+            help="Half of this range on either side of the threshold is labeled uncertain.",
         )
         confidence_threshold = st.slider(
             "Minimum confidence",
             min_value=0.50,
             max_value=0.95,
-            value=0.60,
+            key="confidence_threshold",
             step=0.01,
-            help="Lower-confidence predictions are shown as insufficient confidence.",
+            help=(
+                "Minimum max(class score) for a directional result. This score is not "
+                "a guarantee of correctness and may not be calibrated."
+            ),
         )
         show_token_attributions = False
         if advanced_components_available.get("transformer"):
@@ -1299,6 +1357,114 @@ if analyze:
 
     component_probabilities = advanced_result.get("components", {})
     with st.expander("More about this result", expanded=False):
+        st.markdown("**How this decision was made**")
+        st.write(
+            f"The selected model produced a fake-pattern score of {fake_probability:.1%}. "
+            f"The decision threshold is {threshold:.1%}; the uncertain band is "
+            f"{max(0.0, threshold - uncertainty_margin / 2):.1%}–"
+            f"{min(1.0, threshold + uncertainty_margin / 2):.1%}. "
+            f"The score is {abs(fake_probability - threshold):.1%} away from the "
+            "threshold."
+        )
+        if prediction in {"FAKE", "REAL"}:
+            st.caption(
+                "Changing the threshold or confidence setting can change the displayed "
+                "label without changing the text, model, or underlying evidence."
+            )
+        st.markdown("**Threshold sensitivity (same model score)**")
+        threshold_values = sorted(
+            {0.30, 0.40, 0.50, 0.60, 0.70, round(float(threshold), 2)}
+        )
+        threshold_rows = []
+        for candidate_threshold in threshold_values:
+            candidate_label = (
+                "Insufficient Confidence"
+                if confidence < confidence_threshold
+                else classify_probability(
+                    fake_probability, candidate_threshold, uncertainty_margin
+                )
+            )
+            threshold_rows.append(
+                {
+                    "FAKE threshold": f"{candidate_threshold:.0%}",
+                    "Decision at this threshold": candidate_label,
+                    "Score distance": f"{abs(fake_probability - candidate_threshold):.1%}",
+                }
+            )
+        st.dataframe(threshold_rows, use_container_width=True, hide_index=True)
+        st.caption(
+            "This is a decision-policy sensitivity check, not a search for the most "
+            "accurate threshold. Choosing a threshold for accuracy requires a separate "
+            "labeled validation set and an explicit false-positive/false-negative cost."
+        )
+
+        benchmark_name, benchmark = selected_validation_metrics(
+            selected_component,
+            use_advanced_model,
+            advanced_metrics or {},
+            baseline_metrics or {},
+        )
+        st.markdown("**Held-out evaluation for this model**")
+        if benchmark:
+            matrix = benchmark.get("confusion_matrix")
+            sample_count = (
+                sum(sum(int(value) for value in row) for row in matrix)
+                if isinstance(matrix, list)
+                else None
+            )
+            benchmark_values = {
+                "Evaluation model": benchmark_name,
+                "Test examples": sample_count,
+                "Accuracy": benchmark.get("accuracy"),
+                "Precision (FAKE)": benchmark.get("precision_fake", benchmark.get("precision")),
+                "Recall (FAKE)": benchmark.get("recall_fake", benchmark.get("recall")),
+                "Macro F1" if not use_advanced_model else "F1 (FAKE)": benchmark.get(
+                    "macro_f1", benchmark.get("f1")
+                ),
+                "ROC-AUC": benchmark.get("roc_auc"),
+                "Brier score": benchmark.get("brier_score"),
+                "Calibration error": benchmark.get("calibration_error"),
+            }
+            st.dataframe(
+                [
+                    {
+                        "Measure": name,
+                        "Value": (
+                            str(int(value))
+                            if name == "Test examples"
+                            else f"{float(value):.4f}"
+                            if isinstance(value, (int, float))
+                            else str(value)
+                        ),
+                    }
+                    for name, value in benchmark_values.items()
+                    if value is not None
+                ],
+                use_container_width=True,
+                hide_index=True,
+            )
+            if isinstance(matrix, list):
+                st.write("Confusion matrix (rows=true REAL/FAKE; columns=predicted REAL/FAKE)")
+                st.dataframe(
+                    [
+                        {"Actual": label, "Predicted REAL": row[0], "Predicted FAKE": row[1]}
+                        for label, row in zip(("REAL", "FAKE"), matrix, strict=True)
+                    ],
+                    use_container_width=True,
+                    hide_index=True,
+                )
+            st.caption(
+                "These are aggregate results on the saved test split, not a correctness "
+                "estimate for this individual article. Dataset/source bias and changes "
+                "in real-world news can make actual performance substantially worse."
+            )
+        else:
+            st.info(
+                "No saved held-out metrics are available for this model. Train/evaluate "
+                "it locally to produce a benchmark; the individual score alone cannot "
+                "establish reliability."
+            )
+
         st.markdown("**Model confidence**")
         st.progress(fake_probability, text=f"Misleading-pattern score: {fake_probability:.1%}")
         st.caption(

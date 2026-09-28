@@ -47,8 +47,32 @@ NewsCheck can:
 - Show text statistics
 - Provide an adjustable classification threshold
 - Provide an uncertainty margin
+- Compare how a single prediction changes under several decision thresholds
+- Inspect saved held-out metrics for the selected model, when available
 - Display model evaluation metrics
 - Run through an interactive Streamlit dashboard
+
+### Exploring settings and interpreting results
+
+The dashboard's **Settings** panel includes baseline/advanced model choices and
+three starting operating profiles: balanced, fewer false-positive flags, and
+more sensitive screening. The profile only initializes the editable decision
+threshold, uncertainty band, and minimum score threshold. Changing these values
+changes how a score is displayed; it does not retrain the model or make its
+underlying evidence more accurate. Raising the FAKE threshold often reduces
+false-positive flags while increasing missed candidates; lowering it often
+does the reverse. These trade-offs must be measured on representative labeled
+validation data before selecting a threshold for a real use case.
+
+The expanded result details show the current score's distance from the decision
+threshold, a threshold-sensitivity table, and saved holdout metrics for the
+selected model when those reports exist. Accuracy, precision, recall, F1,
+ROC-AUC, Brier score, calibration error, and the confusion matrix describe
+aggregate evaluation behavior; they are not a per-article probability of truth.
+Calibration can reduce score miscalibration on data similar to its validation
+set, but it cannot establish factual correctness or guarantee reliability on
+new sources, topics, or future news. The bundled dataset has known source/style
+leakage, so the benchmark can substantially overstate real-world performance.
 
 ---
 
